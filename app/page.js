@@ -83,12 +83,20 @@ function PrintLayout({ material, cat, type, onClose }) {
     }}>
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          .print-area, .print-area * { visibility: visible; }
-          .print-area { position: fixed; inset: 0; }
-          .no-print { display: none !important; }
-          .page-break { page-break-before: always; }
-        }
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; top: 0; left: 0; width: 100%; }
+  .no-print { display: none !important; }
+  .page-break {
+    page-break-before: always;
+    break-before: always;
+    display: block;
+  }
+  .print-page {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
       `}</style>
 
       <div style={{
@@ -99,6 +107,7 @@ function PrintLayout({ material, cat, type, onClose }) {
 
           {/* PAGE 1 — Client Material */}
           <div style={{ padding: "40px 48px", fontFamily: "'Georgia', serif" }}>
+          <div className="print-page" style={{ padding: "40px 48px", fontFamily: "'Georgia', serif" }}>
             <div style={{ borderBottom: `3px solid ${cat?.color}`, paddingBottom: 14, marginBottom: 24 }}>
               <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 2, color: "#999", marginBottom: 6 }}>
                 {cat?.label} · {type?.label}
@@ -143,7 +152,7 @@ function PrintLayout({ material, cat, type, onClose }) {
           </div>
 
           {/* PAGE 2 — Therapist Note */}
-          <div className="page-break" style={{ padding: "40px 48px", fontFamily: "'Georgia', serif", borderTop: "2px dashed #ddd" }}>
+          <div className="page-break print-page" style={{ padding: "40px 48px", fontFamily: "'Georgia', serif" }}>
             <div style={{ background: "#f8f9fc", borderRadius: 12, padding: "28px 32px", borderLeft: `5px solid ${cat?.color}` }}>
               <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 2, color: "#999", marginBottom: 8 }}>
                 Clinician Reference — Not for Client
