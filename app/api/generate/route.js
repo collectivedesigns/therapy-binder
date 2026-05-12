@@ -47,7 +47,7 @@ export async function POST(request) {
   try {
     const { categoryLabel, materialType, ageGroup } = await request.json();
     const response = await client.messages.create({
-      model: "claude-opus-4-6",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 1024,
       system: SYSTEM_PROMPTS[ageGroup] || SYSTEM_PROMPTS.adult,
       messages: [{ role: "user", content: buildPrompt(categoryLabel, materialType, ageGroup) }],
