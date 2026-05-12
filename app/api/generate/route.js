@@ -1,5 +1,5 @@
-export const runtime = "edge";
-export const maxDuration = 90;
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 import Anthropic from "@anthropic-ai/sdk";
 
