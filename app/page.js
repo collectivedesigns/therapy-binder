@@ -106,7 +106,6 @@ function PrintLayout({ material, cat, type, onClose }) {
         <div className="print-area">
 
           {/* PAGE 1 — Client Material */}
-          <div style={{ padding: "40px 48px", fontFamily: "'Georgia', serif" }}>
           <div className="print-page" style={{ padding: "40px 48px", fontFamily: "'Georgia', serif" }}>
             <div style={{ borderBottom: `3px solid ${cat?.color}`, paddingBottom: 14, marginBottom: 24 }}>
               <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 2, color: "#999", marginBottom: 6 }}>
