@@ -72,114 +72,177 @@ function LoadingDots({ color }) {
   );
 }
 
-function PrintLayout({ material, cat, type, onClose }) {
-  const handlePrint = () => window.print();
+function PrintLayout({ material, cat, type, ageGroupObj, onClose }) {
+  const handleDownloadPDF = async () => {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "pt", format: "letter" });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 48;
+    const contentWidth = pageWidth - margin * 2;
+    let y = margin;
+
+    const hexToRgb = (hex) => {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return [r, g, b];
+    };
+
+    const [cr, cg, cb] = hexToRgb(cat?.color || "#4A90D9");
+
+    // --- PAGE 1: CLIENT MATERIAL ---
+
+    // Color header bar
+    doc.setFillColor(cr, cg, cb);
+    doc.rect(0, 0, pageWidth, 56, "F");
+
+    // Header text
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${(cat?.label || "").toUpperCase()} · ${(type?.label || "").toUpperCase()}`, margin, 24);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(material.title || "", margin, 44);
+
+    y = 80;
+
+    // Sections
+    material.sections?.forEach((section) => {
+      if (y > pageHeight - 80) { doc.addPage(); y = margin; }
+
+      if (section.heading) {
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(cr, cg, cb);
+        doc.text(section.heading.toUpperCase(), margin, y);
+        y += 6;
+        doc.setDrawColor(cr, cg, cb);
+        doc.setLineWidth(0.5);
+        doc.line(margin, y, margin + contentWidth, y);
+        y += 14;
+      }
+
+      doc.setTextColor(60, 60, 60);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+
+      if (Array.isArray(section.content)) {
+        section.content.forEach((item) => {
+          if (y > pageHeight - 80) { doc.addPage(); y = margin; }
+          const lines = doc.splitTextToSize(`• ${item}`, contentWidth - 12);
+          doc.text(lines, margin + 8, y);
+          y += lines.length * 16 + 4;
+        });
+      } else {
+        const lines = doc.splitTextToSize(section.content || "", contentWidth);
+        lines.forEach((line) => {
+          if (y > pageHeight - 80) { doc.addPage(); y = margin; }
+          doc.text(line, margin, y);
+          y += 16;
+        });
+      }
+      y += 12;
+    });
+
+    // Write-in lines for worksheets
+    if (type?.id === "worksheet") {
+      if (y > pageHeight - 120) { doc.addPage(); y = margin; }
+      y += 8;
+      doc.setFontSize(9);
+      doc.setTextColor(180, 180, 180);
+      doc.text("Write your response here:", margin, y);
+      y += 14;
+      for (let i = 0; i < 4; i++) {
+        if (y > pageHeight - 60) break;
+        doc.setDrawColor(200, 210, 220);
+        doc.setLineWidth(0.75);
+        doc.line(margin, y, margin + contentWidth, y);
+        y += 28;
+      }
+    }
+
+    // Footer
+    if (material.printFooter) {
+      y += 10;
+      if (y > pageHeight - 60) { doc.addPage(); y = margin; }
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bolditalic");
+      doc.setTextColor(cr, cg, cb);
+      const footerLines = doc.splitTextToSize(`✨ ${material.printFooter}`, contentWidth);
+      doc.text(footerLines, pageWidth / 2, y, { align: "center" });
+    }
+
+    // --- PAGE 2: THERAPIST NOTE ---
+    doc.addPage();
+    y = margin;
+
+    // Therapist note header bar
+    doc.setFillColor(44, 62, 107);
+    doc.rect(0, 0, pageWidth, 56, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("CLINICIAN REFERENCE — NOT FOR CLIENT", margin, 24);
+    doc.setFontSize(16);
+    doc.text("Therapist Note", margin, 44);
+
+    y = 80;
+
+    // Note box background
+    doc.setFillColor(248, 249, 252);
+    doc.setDrawColor(cr, cg, cb);
+    doc.setLineWidth(3);
+    doc.roundedRect(margin - 8, y - 8, contentWidth + 16, 200, 8, 8, "FD");
+
+    // Note content
+    doc.setTextColor(60, 60, 60);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    const noteLines = doc.splitTextToSize(material.therapistNote || "", contentWidth - 16);
+    noteLines.forEach((line) => {
+      doc.text(line, margin, y + 8);
+      y += 18;
+    });
+
+    y += 40;
+
+    // Material reference footer
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(160, 160, 160);
+    doc.text(`Material: ${material.title} · ${cat?.label} · ${type?.label}`, margin, y);
+
+    // Save
+    const filename = `${(cat?.label || "material").replace(/\s+/g, "-").toLowerCase()}-${type?.id || "material"}.pdf`;
+    doc.save(filename);
+  };
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)",
-      zIndex: 1000, display: "flex", alignItems: "center",
-      justifyContent: "center", padding: 16,
-    }}>
-      <style>{`
-        @media print {
-  body * { visibility: hidden; }
-  .print-area, .print-area * { visibility: visible; }
-  .print-area { position: absolute; top: 0; left: 0; width: 100%; }
-  .no-print { display: none !important; }
-  .page-break {
-    page-break-before: always;
-    break-before: always;
-    display: block;
-  }
-  .print-page {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-}
-      `}</style>
-
-      <div style={{
-        background: "#fff", borderRadius: 16, width: "100%", maxWidth: 680,
-        maxHeight: "90vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
-      }}>
-        <div className="print-area">
-
-          {/* PAGE 1 — Client Material */}
-          <div className="print-page" style={{ padding: "40px 48px", fontFamily: "'Georgia', serif" }}>
-            <div style={{ borderBottom: `3px solid ${cat?.color}`, paddingBottom: 14, marginBottom: 24 }}>
-              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 2, color: "#999", marginBottom: 6 }}>
-                {cat?.label} · {type?.label}
-              </div>
-              <h1 style={{ fontSize: 24, fontWeight: "bold", margin: 0, color: cat?.color }}>
-                {material.title}
-              </h1>
-            </div>
-
-            {material.sections?.map((section, i) => (
-              <div key={i} style={{ marginBottom: 22 }}>
-                {section.heading && (
-                  <h2 style={{ fontSize: 14, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, color: "#333", marginBottom: 10 }}>
-                    {section.heading}
-                  </h2>
-                )}
-                {Array.isArray(section.content) ? (
-                  <ul style={{ paddingLeft: 20, margin: 0 }}>
-                    {section.content.map((item, j) => (
-                      <li key={j} style={{ marginBottom: 8, lineHeight: 1.7, fontSize: 14 }}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div style={{ lineHeight: 1.8, fontSize: 14, whiteSpace: "pre-wrap" }}>{section.content}</div>
-                )}
-              </div>
-            ))}
-
-            {type?.id === "worksheet" && (
-              <div style={{ marginTop: 16 }}>
-                {[1, 2, 3, 4].map(n => (
-                  <div key={n} style={{ borderBottom: "1.5px solid #ccc", height: 40, marginBottom: 4 }} />
-                ))}
-              </div>
-            )}
-
-            {material.printFooter && (
-              <div style={{ marginTop: 28, textAlign: "center", fontSize: 13, color: cat?.color, fontStyle: "italic", borderTop: "1px solid #eee", paddingTop: 16 }}>
-                {material.printFooter}
-              </div>
-            )}
-          </div>
-
-          {/* PAGE 2 — Therapist Note */}
-          <div className="page-break print-page" style={{ padding: "40px 48px", fontFamily: "'Georgia', serif" }}>
-            <div style={{ background: "#f8f9fc", borderRadius: 12, padding: "28px 32px", borderLeft: `5px solid ${cat?.color}` }}>
-              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 2, color: "#999", marginBottom: 8 }}>
-                Clinician Reference — Not for Client
-              </div>
-              <h2 style={{ fontSize: 18, fontWeight: "bold", color: "#2c3e6b", marginBottom: 16, marginTop: 0 }}>
-                🩺 Therapist Note
-              </h2>
-              <div style={{ fontSize: 14, color: "#444", lineHeight: 1.8 }}>
-                {material.therapistNote}
-              </div>
-              <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid #e0e4ed" }}>
-                <div style={{ fontSize: 12, color: "#999", fontStyle: "italic" }}>
-                  Material: {material.title} · {cat?.label} · {type?.label}
-                </div>
-              </div>
-            </div>
-          </div>
-
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, boxShadow: "0 20px 60px rgba(0,0,0,0.4)", fontFamily: "inherit", overflow: "hidden" }}>
+        <div style={{ background: cat?.color, padding: "20px 24px", color: "#fff" }}>
+          <div style={{ fontSize: 11, opacity: 0.8, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>{cat?.label} · {type?.label}</div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700 }}>{material.title}</div>
         </div>
-
-        {/* Buttons — hidden on print */}
-        <div className="no-print" style={{ padding: "16px 24px", borderTop: "1px solid #eee", display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ padding: "10px 20px", background: "#f0f0f0", color: "#555", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: 14, fontFamily: "inherit" }}>
-            Close
-          </button>
-          <button onClick={handlePrint} style={{ padding: "10px 24px", background: cat?.color, color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 800, fontSize: 14, fontFamily: "inherit" }}>
-            🖨️ Print
-          </button>
+        <div style={{ padding: "24px" }}>
+          <div style={{ background: "#f8f9fc", borderRadius: 12, padding: "16px", marginBottom: 20, borderLeft: `4px solid ${cat?.color}` }}>
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, color: "#8a9bb0", marginBottom: 8 }}>PDF will include</div>
+            <div style={{ fontSize: 13, color: "#444", lineHeight: 1.8 }}>
+              📄 <strong>Page 1:</strong> Client-facing material<br />
+              📋 <strong>Page 2:</strong> Therapist note (clinician reference)
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: "13px", background: "#f0f0f0", color: "#555", border: "none", borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
+              Cancel
+            </button>
+            <button onClick={handleDownloadPDF} style={{ flex: 2, padding: "13px", background: cat?.color, color: "#fff", border: "none", borderRadius: 12, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
+              ⬇️ Download PDF
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -435,6 +498,7 @@ export default function TherapyBinder() {
           material={material}
           cat={cat}
           type={type}
+         ageGroupObj={ageGroupObj}
           onClose={() => setPrintOpen(false)}
         />
       )}
